@@ -17,6 +17,7 @@ import pedro.ieslaencanta.com.dawairtemplate.Background;
 import pedro.ieslaencanta.com.dawairtemplate.IWarnClock;
 import pedro.ieslaencanta.com.dawairtemplate.model.sprites.IDrawable;
 import pedro.ieslaencanta.com.dawairtemplate.model.sprites.IKeyListener;
+import pedro.ieslaencanta.com.dawairtemplate.model.sprites.IMove;
 
 
 /**
@@ -47,6 +48,9 @@ public class Level implements IDrawable, IWarnClock, IKeyListener {
    
     private Estado estado;
     private Player p;
+    private Fighter fighter;
+    private ArrayList<FighterEnemy> enemy;
+    private ArrayList<Bullets> bulletenemy;
     public Level(String image_path, String music_path, Size s, int speed, Coordenada start_position, GraphicsContext bg_ctx, float[] probabilidad_enemigos,int fin) {
         this.background = new Background(image_path, s, speed, start_position);
         this.background.setBg(bg_ctx);
@@ -55,9 +59,16 @@ public class Level implements IDrawable, IWarnClock, IKeyListener {
         this.estado = Estado.PRE_STARTED;
         this.fin = fin;
         this.s = s;
+        this.enemy = new ArrayList();
+        this.bulletenemy = new ArrayList();
         //crear el avion
           this.probabilidadenemigos = probabilidad_enemigos;
         this.initSound(music_path);
+        this.fighter = new Fighter(
+               3,
+               new Size(74, 26),
+               new Coordenada(20, s.getHeight() / 2),
+               new Rectangle(new Coordenada(0, 0), new Coordenada(s.getWidth(), s.getHeight())));
 
     }
     
@@ -80,6 +91,7 @@ public class Level implements IDrawable, IWarnClock, IKeyListener {
     public void draw(GraphicsContext gc) {
         
         this.background.paint(gc);
+        this.fighter.draw(gc);
         if (this.estado == Estado.PRE_STARTED) {
             gc.setFill(Color.BROWN);
             gc.setStroke(Color.WHITE);
@@ -87,6 +99,10 @@ public class Level implements IDrawable, IWarnClock, IKeyListener {
             gc.fillText(Level.msg[0], 100, 200);
 
         }
+        
+        this.fighter.draw(gc);
+        this.enemy.forEach(e -> e.draw(gc));
+        this.bulletenemy.forEach(b -> b.draw(gc));
        
     }
 
@@ -95,6 +111,8 @@ public class Level implements IDrawable, IWarnClock, IKeyListener {
         if (this.getEstado() == Estado.RUNNING) {
             //llamar a tictac de los hijos
            this.TicTacChildrens();
+           this.generateEnemies();
+           this.detectCollisions();
            
             //posicion en la que termina
             if (this.position < this.fin) {
@@ -104,16 +122,43 @@ public class Level implements IDrawable, IWarnClock, IKeyListener {
             }
         }
     }
+    
+     private void generateEnemies() {
+        int random = (int) (Math.random() * 30);
+        int x = this.fighter.getBoard().getEnd().getX();
+        int y = this.fighter.getBoard().getEnd().getY();
+        Rectangle board = this.fighter.getBoard();
+        if (random == 0) {
+            FighterEnemy tempo = new FighterEnemy(5, new Size(62, 28), new Coordenada(x,(int) (Math.random() * y) ), board, IMove.Direction.LEFT);
+            this.enemy.add(tempo);
+        }
+    }
+    
+    
+    
+    
+    
 
     private void detectCollisions() {
         //se mira si las balas del avión le pegan a algún enemigo
         //ademá se borran los que se pasen por el lateral
+        this.fighter.getBala().forEach(b -> this.enemy.forEach(e -> b.isCollision(e)));
+        this.bulletenemy.forEach(b -> b.isCollision(this.fighter));
+        this.enemy.forEach(e -> e.isCollision(this.fighter));
     
     }
 
     private void TicTacChildrens() {
         //pintar el fondo
         this.background.TicTac();
+        this.fighter.TicTac();
+        
+        this.enemy.forEach(e -> e.TicTac());
+        this.enemy.removeIf(e -> !e.isLive());
+        
+        this.bulletenemy.forEach(b -> b.TicTac());
+        this.bulletenemy.removeIf(b -> !b.isLive());
+
        
     }
 
@@ -166,7 +211,7 @@ public class Level implements IDrawable, IWarnClock, IKeyListener {
     @Override
     public void onKeyPressed(KeyCode code) {
         //pasar el key code al avion
-       
+       this.fighter.onKeyPressed(code);
     }
 
     @Override
@@ -176,6 +221,7 @@ public class Level implements IDrawable, IWarnClock, IKeyListener {
             this.setEstado(Level.Estado.RUNNING);
         }
         if (this.getEstado() == Level.Estado.RUNNING) {
+            this.fighter.onKeyReleased(code);
             
             if (player.getStatus() == MediaPlayer.Status.READY) {
                 player.play();
@@ -184,4 +230,5 @@ public class Level implements IDrawable, IWarnClock, IKeyListener {
 
         
     }
+    
 }
